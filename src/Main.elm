@@ -15,12 +15,12 @@ import Html
 
 
 rules_text =
-    "The goal is to collect more marbles (in your mancala) than your opponent does. The Mancala 'board' is made up of 2 rows of 6 holes each. 4 marbles are placed in each of the 12 holes. The color of the marble is irrelevant. Each player has an empty 'mancala' to the right side of the Mancala board. The game begins with one player picking up all of the marbles in any one of the non-empty holes on his side. Moving counter-clockwise, the player deposits one of the marbles in each hole he runs into until the marbles run out. If you run into your own mancala, deposit one marble in it. If you run into your opponent's mancala, skip it. If the last marble you drop is in your own mancala, you get a free turn. If the last marble you drop is in an empty hole on your side, you empty all marbles on the hole directly opposite to your hole and put it in your hole. The game ends when all the 6 holes on one side of the Mancala board are empty. The Player who still has marbles on his side of the board when the game ends captures all of those marbles and places it in his mancala. Count all the marbles in each mancala. The winner is the Player with the most marbles. The game idea and this rule description is taken from "
+    "The goal is to collect more marbles (in your mancala) than your opponent does. The Mancala 'board' is made up of 2 rows of 6 holes each. 4 marbles are placed in each of the 12 holes. The color of the marble is irrelevant. Each player has an empty 'mancala' to the right side of the Mancala board. The game begins with one player picking up all of the marbles in any one of the non-empty holes on his or her side. Moving counter-clockwise, the player deposits one of the marbles in each hole she or he runs into until the marbles run out. If you run into your own mancala, deposit one marble in it. If you run into your opponent's mancala, skip it. If the last marble you drop is in your own mancala, you get a free turn. If the last marble you drop is in an empty hole on your side, you empty all marbles on the hole directly opposite to your hole and put it in your hole. The game ends when all the 6 holes on one side of the Mancala board are empty. The player who still has marbles on his side of the board when the game ends captures all of those marbles and places it in his mancala. Count all the marbles in each mancala. The winner is the player with the most marbles. Note: The game idea and this rule description is taken from "
 
 
 rules_text_element =
-    Element.textColumn [ spacing 10, padding 10 ]
-        [ paragraph []
+    Element.textColumn [ spacing 10, padding 10]
+        [ paragraph [width <| px 895, Font.size 20, Font.justify]
             [ text rules_text
             , link [ Font.color <| rgb 0 0 1 ]
                 { url = "https://www.hackerrank.com/challenges/mancala6"
@@ -299,17 +299,6 @@ gray =
     rgb 0.5 0.5 0.5
 
 
-brown =
-    rgb 0.6 0.3 0
-
-
-append_zero s =
-    case String.length s of
-        1 ->
-            String.append "0" s
-
-        _ ->
-            s
 
 
 view : Model -> Html.Html Msg
