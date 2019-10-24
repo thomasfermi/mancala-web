@@ -56,6 +56,7 @@ type alias Model =
     }
 
 
+
 initialModel : Model
 initialModel =
     let
@@ -96,6 +97,25 @@ increment board_state index =
 
         Just num_marbles ->
             Array.set index (num_marbles + 1) board_state
+
+
+get_score_for_player player game_state =
+    case player of 
+        Player -> Array.slice 0 6 game_state.board_state |> Array.toList |> List.sum
+        Opponent ->  Array.slice 7 13 game_state.board_state |> Array.toList |> List.sum
+
+
+is_game_state_final game_state =
+    let
+        get_num_marbles_in_all_holes_for player =
+            case player of 
+                Player -> Array.slice 0 5 game_state.board_state |> Array.toList |> List.sum
+                Opponent ->  Array.slice 7 12 game_state.board_state |> Array.toList |> List.sum
+
+        player_marbles = get_num_marbles_in_all_holes_for Player 
+        opponent_marbles = get_num_marbles_in_all_holes_for Opponent 
+    in
+        (player_marbles == 0) || (opponent_marbles == 0)
 
 
 steal_marbles game_state winning_hole_index losing_hole_index =
@@ -198,13 +218,10 @@ drop_marbles game_state marbles_in_hand current_index =
         check_for_bonus inc_game_state current_index
 
 
-make_legal_move model index =
+make_move game_state index =
     let
-        last_game_state =
-            Just model.game_state
-
         num_marbles =
-            case Array.get index model.game_state.board_state of
+            case Array.get index game_state.board_state of
                 Just i ->
                     i
 
@@ -212,21 +229,18 @@ make_legal_move model index =
                     0
 
         board_state_empty_hole =
-            Array.set index 0 model.game_state.board_state
+            Array.set index 0 game_state.board_state
 
         game_state_empty_hole =
-            { board_state = board_state_empty_hole, active_player = model.game_state.active_player }
-
-        new_game_state =
-            drop_marbles game_state_empty_hole num_marbles (wrapped_int_increment index)
+            { board_state = board_state_empty_hole, active_player = game_state.active_player }            
     in
-    { model | game_state = new_game_state, last_game_state = last_game_state }
+        drop_marbles game_state_empty_hole num_marbles (wrapped_int_increment index)
 
 
-make_move model index =
+is_legal_move game_state index =
     let
         correct_side =
-            case model.game_state.active_player of
+            case game_state.active_player of
                 Player ->
                     0 <= index && index <= 5
 
@@ -234,19 +248,97 @@ make_move model index =
                     7 <= index && index <= 12
 
         hole_non_empty =
-            case Array.get index model.game_state.board_state of
+            case Array.get index game_state.board_state of
                 Just i ->
                     i > 0
 
                 Nothing ->
                     False
-
-        legal_move =
-            correct_side && hole_non_empty
     in
-    if legal_move then
-        make_legal_move model index
+        correct_side && hole_non_empty
 
+
+
+-- Player is maximizing player and Opponent is minimizing player
+heuristic game_state = 
+    get_score_for_player Player game_state - get_score_for_player Opponent game_state
+
+
+{-return a list of pairs. Each pair consists of a game state s' and an action a, 
+whereby s' is a successor of the current game state s under a (plus potential bonus moves, which are not part of the return).
+let's say the following sequences of actions are possible (sequence because bonus move)
+[0,5], [0,4], [1], [4]. Function returns [(0,s1), (0,s2), (1,s3), (4,s4)], where s1 is the state after [0,5], s2 state after [0,4] etc. -}
+get_all_children_and_actions : GameState -> List (Int,GameState)
+get_all_children_and_actions game_state = 
+    let
+        hole_range = case game_state.active_player of 
+                        Player -> (0,5)
+                        Opponent -> (7,12)
+        s = Tuple.first hole_range
+        e = Tuple.second hole_range
+        -- Create for holes 0,1,2,... the lists: [], [s1,s2], [s3], ... Each list shows reachable states
+        list_of_list_of_states = List.map (explore_all_reachable_states game_state) (List.range s e) 
+        -- Map [], [s1,s2], [s3] to (0,[]), (1,[s1,s2]), (2,[s3])
+        offset = if game_state.active_player == Player then 0 else 7
+        list_with_applied_tupling = List.indexedMap (\index state -> (index+offset, state)) list_of_list_of_states
+        -- Map (0,[]), (1,[s1,s2]), (2,[s3]) to (1,[s1,s2]), (2,[s3])
+        filter_func x = Tuple.second x |> List.isEmpty |> not
+        filtered_list_with_applied_tupling = List.filter filter_func list_with_applied_tupling
+        -- Map (1,[s1,s2]), (2,[s3]) to (1,s1) (1,s2), (2,s3)
+        expansion_func (i,l)= List.map (\x -> (i,x)) l 
+        result = List.concatMap expansion_func filtered_list_with_applied_tupling     
+    in
+        result
+        
+    --The above line yields List with 6 elements. The i-th element is the list of possible game_states the player can reach after picking hole i.
+
+
+
+explore_all_reachable_states : GameState -> Int -> List GameState
+explore_all_reachable_states game_state hole = --TODO: rewrite for tail recursion optimization 
+{- Find all states that can be reached if the player chooses to pick hole=hole. 
+   Result can be 
+    - empty list (picking that hole is illegal).
+    - list with one element (picking hole is legal, and we get no extra move)
+    - list with several moves (player exploiting bonus move rule)
+-}
+    if is_legal_move game_state hole
+    then
+        let
+            resulting_game_state = make_move game_state hole
+        in
+            if resulting_game_state.active_player /= game_state.active_player
+            then [resulting_game_state]
+            else 
+                let
+                    hole_range = case game_state.active_player of 
+                                    Player -> (0,5)
+                                    Opponent -> (7,12)
+                    s = Tuple.first hole_range
+                    e = Tuple.second hole_range
+                    list_of_reachable_states = 
+                        List.concatMap (explore_all_reachable_states resulting_game_state) (List.range s e)     
+                in
+                    resulting_game_state::list_of_reachable_states               
+    else 
+        []
+
+
+
+perform_legal_user_action model index =
+    let
+        last_game_state =
+            Just model.game_state
+
+        new_game_state =
+            make_move model.game_state index
+    in
+    { model | game_state = new_game_state, last_game_state = last_game_state }
+
+
+perform_user_action model index =
+    if is_legal_move model.game_state index then
+        perform_legal_user_action model index
     else
         model
 
@@ -278,7 +370,7 @@ update : Msg -> Model -> Model
 update msg model =
     case msg of
         Action index ->
-            make_move model index
+            perform_user_action model index
 
         Revert ->
             revert model
