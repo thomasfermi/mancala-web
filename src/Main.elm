@@ -101,8 +101,8 @@ increment board_state index =
 
 get_score_for_player player game_state =
     case player of 
-        Player -> Array.slice 0 6 game_state.board_state |> Array.toList |> List.sum
-        Opponent ->  Array.slice 7 13 game_state.board_state |> Array.toList |> List.sum
+        Player -> Array.slice 0 7 game_state.board_state |> Array.toList |> List.sum
+        Opponent ->  Array.slice 7 14 game_state.board_state |> Array.toList |> List.sum
 
 
 is_game_state_final game_state =
@@ -267,8 +267,8 @@ heuristic game_state =
 {-return a list of pairs. Each pair consists of a game state s' and an action a, 
 whereby s' is a successor of the current game state s under a (plus potential bonus moves, which are not part of the return).
 let's say the following sequences of actions are possible (sequence because bonus move)
-[0,5], [0,4], [1], [4]. Function returns [(0,s1), (0,s2), (1,s3), (4,s4)], where s1 is the state after [0,5], s2 state after [0,4] etc. -}
-get_all_children_and_actions : GameState -> List (Int,GameState)
+[0,5], [0,4], [1], [4]. Function returns [(s1,0), (s2,0), (s3,1), (s4,4)], where s1 is the state after [0,5], s2 state after [0,4] etc. -}
+get_all_children_and_actions : GameState -> List (GameState, Int)
 get_all_children_and_actions game_state = 
     let
         hole_range = case game_state.active_player of 
@@ -284,8 +284,8 @@ get_all_children_and_actions game_state =
         -- Map (0,[]), (1,[s1,s2]), (2,[s3]) to (1,[s1,s2]), (2,[s3])
         filter_func x = Tuple.second x |> List.isEmpty |> not
         filtered_list_with_applied_tupling = List.filter filter_func list_with_applied_tupling
-        -- Map (1,[s1,s2]), (2,[s3]) to (1,s1) (1,s2), (2,s3)
-        expansion_func (i,l)= List.map (\x -> (i,x)) l 
+        -- Map (1,[s1,s2]), (2,[s3]) to (s1,1) (s2,1), (s3,2)
+        expansion_func (i,l)= List.map (\x -> (x,i)) l 
         result = List.concatMap expansion_func filtered_list_with_applied_tupling     
     in
         result
@@ -322,6 +322,49 @@ explore_all_reachable_states game_state hole = --TODO: rewrite for tail recursio
                     resulting_game_state::list_of_reachable_states               
     else 
         []
+
+take_max : List (GameState, Int) -> Int -> Int -> Int -> Int -> Int
+take_max children depth alpha beta value =
+    let 
+        v = case children of 
+                [] -> value
+                (c::cs) -> max value (alpha_beta (Tuple.first c) (depth - 1) alpha beta)
+        new_alpha = max alpha v
+    in 
+        if beta <= new_alpha then
+            v
+        else
+            case children of 
+                (c::[]) -> v
+                (c::cs) -> take_max cs depth alpha beta v
+                [] -> v -- should never occur
+
+take_min : List (GameState, Int) -> Int -> Int -> Int -> Int -> Int
+take_min children depth alpha beta value =
+    let 
+        v = case children of 
+                [] -> value
+                (c::cs) -> min value (alpha_beta (Tuple.first c) (depth - 1) alpha beta)
+        new_beta = min beta v
+    in 
+        if new_beta <= alpha then
+            v
+        else
+            case children of 
+                (c::[]) -> v
+                (c::cs) -> take_min cs depth alpha beta v
+                [] -> v -- should never occur
+
+alpha_beta : GameState -> Int -> Int -> Int -> Int
+alpha_beta game_state depth alpha beta = -- returns value of game_state
+    if depth == 0 || is_game_state_final game_state then
+        heuristic game_state 
+    else 
+        case game_state.active_player of 
+            Player ->  -- maximizing player 
+                take_max (get_all_children_and_actions game_state) depth alpha beta -9999
+            Opponent -> -- minimizing player 
+                take_min (get_all_children_and_actions game_state) depth alpha beta 9999
 
 
 
@@ -482,6 +525,11 @@ view model =
             [ player_B
             , board_ui
             , player_A
+            -- TODO: Should the alpha beta value be shown to the user?
+            --, row [] [ alpha_beta model.game_state 3 -9999 9999 |> String.fromInt |> text]
+            --, row [] [ heuristic model.game_state |> String.fromInt |> text]
+            --, row [] [ get_score_for_player Player model.game_state |> String.fromInt |> text]
+            --, row [] [ get_score_for_player Opponent model.game_state |> String.fromInt |> text]
             , row [ padding 5 ] [ Input.button [ Border.width 3, Border.rounded 10, padding 8, Font.size 28 ] { onPress = Just Revert, label = text "Undo last move" } ]
             , row [ padding 5 ] [ Input.button [ Border.width 3, Border.rounded 10, padding 8, Font.size 28 ] { onPress = Just ChangeRuleVisibility, label = text "Show Rules" } ]
             , show_rules
