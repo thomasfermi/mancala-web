@@ -539,10 +539,10 @@ view model =
                 Player_vs_Player ->
                     case model.game_state.active_player of
                         Player ->
-                            row [ padding 3, centerX, Font.size 28 ] [ text "← Player B" ]
+                            row [ padding 6, centerX, Font.size 28 ] [ text "← Player B" ]
 
                         Opponent ->
-                            row [ padding 3, centerX, Font.size 28, Background.color green ] [ text "← Player B" ]
+                            row [ padding 6, centerX, Font.size 28, Background.color green ] [ text "← Player B" ]
                 Player_vs_AI -> 
                     case model.game_state.active_player of
                         Player ->
@@ -554,13 +554,13 @@ view model =
                                     { onPress = Just AskAI, label = text "← AI opponent" }
                              ]
 
-        player_A =
-            case model.game_state.active_player of
+        player_A = row [ padding 6, centerX, Font.size 28 ] [ text "Player A →" ]
+            {-case model.game_state.active_player of
                 Player ->
-                    row [ padding 3, centerX, Font.size 28, Background.color green ] [ text "Player A →" ]
+                    row [ padding 6, centerX, Font.size 28, Background.color green ] [ text "Player A →" ]
 
                 Opponent ->
-                    row [ padding 3, centerX, Font.size 28 ] [ text "Player A →" ]
+                    row [ padding 6, centerX, Font.size 28 ] [ text "Player A →" ] -}
 
         show_rules =
             if model.rules_visible then
