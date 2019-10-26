@@ -19,8 +19,8 @@ rules_text =
 
 
 rules_text_element =
-    Element.textColumn [ spacing 10, padding 10]
-        [ paragraph [width <| px 895, Font.size 20, Font.justify]
+    Element.textColumn [ spacing 10, padding 10 ]
+        [ paragraph [ width <| px 895, Font.size 20, Font.justify ]
             [ text rules_text
             , link [ Font.color <| rgb 0 0 1 ]
                 { url = "https://www.hackerrank.com/challenges/mancala6"
@@ -60,7 +60,6 @@ type alias Model =
     , last_game_state : Maybe GameState
     , rules_visible : Bool
     }
-
 
 
 init_model : GameType -> Model
@@ -107,22 +106,31 @@ increment board_state index =
 
 
 get_score_for_player player game_state =
-    case player of 
-        Player -> Array.slice 0 7 game_state.board_state |> Array.toList |> List.sum
-        Opponent ->  Array.slice 7 14 game_state.board_state |> Array.toList |> List.sum
+    case player of
+        Player ->
+            Array.slice 0 7 game_state.board_state |> Array.toList |> List.sum
+
+        Opponent ->
+            Array.slice 7 14 game_state.board_state |> Array.toList |> List.sum
 
 
 is_game_state_final game_state =
     let
         get_num_marbles_in_all_holes_for player =
-            case player of 
-                Player -> Array.slice 0 5 game_state.board_state |> Array.toList |> List.sum
-                Opponent ->  Array.slice 7 12 game_state.board_state |> Array.toList |> List.sum
+            case player of
+                Player ->
+                    Array.slice 0 5 game_state.board_state |> Array.toList |> List.sum
 
-        player_marbles = get_num_marbles_in_all_holes_for Player 
-        opponent_marbles = get_num_marbles_in_all_holes_for Opponent 
+                Opponent ->
+                    Array.slice 7 12 game_state.board_state |> Array.toList |> List.sum
+
+        player_marbles =
+            get_num_marbles_in_all_holes_for Player
+
+        opponent_marbles =
+            get_num_marbles_in_all_holes_for Opponent
     in
-        (player_marbles == 0) || (opponent_marbles == 0)
+    (player_marbles == 0) || (opponent_marbles == 0)
 
 
 steal_marbles game_state winning_hole_index losing_hole_index =
@@ -239,9 +247,9 @@ make_move game_state index =
             Array.set index 0 game_state.board_state
 
         game_state_empty_hole =
-            { board_state = board_state_empty_hole, active_player = game_state.active_player }            
+            { board_state = board_state_empty_hole, active_player = game_state.active_player }
     in
-        drop_marbles game_state_empty_hole num_marbles (wrapped_int_increment index)
+    drop_marbles game_state_empty_hole num_marbles (wrapped_int_increment index)
 
 
 is_legal_move game_state index =
@@ -262,133 +270,229 @@ is_legal_move game_state index =
                 Nothing ->
                     False
     in
-        correct_side && hole_non_empty
+    correct_side && hole_non_empty
 
 
 
 -- Player is maximizing player and Opponent is minimizing player
-heuristic game_state = 
+
+
+heuristic game_state =
     get_score_for_player Player game_state - get_score_for_player Opponent game_state
 
 
-{-return a list of pairs. Each pair consists of a game state s' and an action a, 
-whereby s' is a successor of the current game state s under a (plus potential bonus moves, which are not part of the return).
-let's say the following sequences of actions are possible (sequence because bonus move)
-[0,5], [0,4], [1], [4]. Function returns [(s1,0), (s2,0), (s3,1), (s4,4)], where s1 is the state after [0,5], s2 state after [0,4] etc. -}
-get_all_children_and_actions : GameState -> List (GameState, Int)
-get_all_children_and_actions game_state = 
-    let
-        hole_range = case game_state.active_player of 
-                        Player -> (0,5)
-                        Opponent -> (7,12)
-        s = Tuple.first hole_range
-        e = Tuple.second hole_range
-        -- Create for holes 0,1,2,... the lists: [], [s1,s2], [s3], ... Each list shows reachable states
-        list_of_list_of_states = List.map (explore_all_reachable_states game_state) (List.range s e) 
-        -- Map [], [s1,s2], [s3] to (0,[]), (1,[s1,s2]), (2,[s3])
-        offset = if game_state.active_player == Player then 0 else 7
-        list_with_applied_tupling = List.indexedMap (\index state -> (index+offset, state)) list_of_list_of_states
-        -- Map (0,[]), (1,[s1,s2]), (2,[s3]) to (1,[s1,s2]), (2,[s3])
-        filter_func x = Tuple.second x |> List.isEmpty |> not
-        filtered_list_with_applied_tupling = List.filter filter_func list_with_applied_tupling
-        -- Map (1,[s1,s2]), (2,[s3]) to (s1,1) (s2,1), (s3,2)
-        expansion_func (i,l)= List.map (\x -> (x,i)) l 
-        result = List.concatMap expansion_func filtered_list_with_applied_tupling     
-    in
-        result
-        
-    --The above line yields List with 6 elements. The i-th element is the list of possible game_states the player can reach after picking hole i.
 
+{- return a list of pairs. Each pair consists of a game state s' and an action a,
+   whereby s' is a successor of the current game state s under a (plus potential bonus moves, which are not part of the return).
+   let's say the following sequences of actions are possible (sequence because bonus move)
+   [0,5], [0,4], [1], [4]. Function returns [(s1,0), (s2,0), (s3,1), (s4,4)], where s1 is the state after [0,5], s2 state after [0,4] etc.
+-}
+
+
+get_all_children_and_actions : GameState -> List ( GameState, Int )
+get_all_children_and_actions game_state =
+    let
+        hole_range =
+            case game_state.active_player of
+                Player ->
+                    ( 0, 5 )
+
+                Opponent ->
+                    ( 7, 12 )
+
+        s =
+            Tuple.first hole_range
+
+        e =
+            Tuple.second hole_range
+
+        -- Create for holes 0,1,2,... the lists: [], [s1,s2], [s3], ... Each list shows reachable states
+        list_of_list_of_states =
+            List.map (explore_all_reachable_states game_state) (List.range s e)
+
+        -- Map [], [s1,s2], [s3] to (0,[]), (1,[s1,s2]), (2,[s3])
+        offset =
+            if game_state.active_player == Player then
+                0
+
+            else
+                7
+
+        list_with_applied_tupling =
+            List.indexedMap (\index state -> ( index + offset, state )) list_of_list_of_states
+
+        -- Map (0,[]), (1,[s1,s2]), (2,[s3]) to (1,[s1,s2]), (2,[s3])
+        filter_func x =
+            Tuple.second x |> List.isEmpty |> not
+
+        filtered_list_with_applied_tupling =
+            List.filter filter_func list_with_applied_tupling
+
+        -- Map (1,[s1,s2]), (2,[s3]) to (s1,1) (s2,1), (s3,2)
+        expansion_func ( i, l ) =
+            List.map (\x -> ( x, i )) l
+
+        result =
+            List.concatMap expansion_func filtered_list_with_applied_tupling
+    in
+    result
+
+
+
+--The above line yields List with 6 elements. The i-th element is the list of possible game_states the player can reach after picking hole i.
 
 
 explore_all_reachable_states : GameState -> Int -> List GameState
-explore_all_reachable_states game_state hole = --TODO: rewrite for tail recursion optimization 
-{- Find all states that can be reached if the player chooses to pick hole=hole. 
-   Result can be 
-    - empty list (picking that hole is illegal).
-    - list with one element (picking hole is legal, and we get no extra move)
-    - list with several moves (player exploiting bonus move rule)
--}
-    if is_legal_move game_state hole
-    then
+explore_all_reachable_states game_state hole =
+    --TODO: rewrite for tail recursion optimization
+    {- Find all states that can be reached if the player chooses to pick hole=hole.
+       Result can be
+        - empty list (picking that hole is illegal).
+        - list with one element (picking hole is legal, and we get no extra move)
+        - list with several moves (player exploiting bonus move rule)
+    -}
+    if is_legal_move game_state hole then
         let
-            resulting_game_state = make_move game_state hole
+            resulting_game_state =
+                make_move game_state hole
         in
-            if resulting_game_state.active_player /= game_state.active_player
-            then [resulting_game_state]
-            else 
-                let
-                    hole_range = case game_state.active_player of 
-                                    Player -> (0,5)
-                                    Opponent -> (7,12)
-                    s = Tuple.first hole_range
-                    e = Tuple.second hole_range
-                    list_of_reachable_states = 
-                        List.concatMap (explore_all_reachable_states resulting_game_state) (List.range s e)     
-                in
-                    resulting_game_state::list_of_reachable_states               
-    else 
+        if resulting_game_state.active_player /= game_state.active_player then
+            [ resulting_game_state ]
+
+        else
+            let
+                hole_range =
+                    case game_state.active_player of
+                        Player ->
+                            ( 0, 5 )
+
+                        Opponent ->
+                            ( 7, 12 )
+
+                s =
+                    Tuple.first hole_range
+
+                e =
+                    Tuple.second hole_range
+
+                list_of_reachable_states =
+                    List.concatMap (explore_all_reachable_states resulting_game_state) (List.range s e)
+            in
+            resulting_game_state :: list_of_reachable_states
+
+    else
         []
 
-take_max : List (GameState, Int) -> Int -> Int -> Int -> Int -> Int
-take_max children depth alpha beta value =
-    let 
-        v = case children of 
-                [] -> value
-                (c::cs) -> max value (alpha_beta (Tuple.first c) (depth - 1) alpha beta)
-        new_alpha = max alpha v
-    in 
-        if beta <= new_alpha then
-            v
-        else
-            case children of 
-                (c::[]) -> v
-                (c::cs) -> take_max cs depth alpha beta v
-                [] -> v -- should never occur
 
-take_min : List (GameState, Int) -> Int -> Int -> Int -> Int -> Int
+take_max : List ( GameState, Int ) -> Int -> Int -> Int -> Int -> Int
+take_max children depth alpha beta value =
+    let
+        v =
+            case children of
+                [] ->
+                    value
+
+                c :: cs ->
+                    max value (alpha_beta (Tuple.first c) (depth - 1) alpha beta)
+
+        new_alpha =
+            max alpha v
+    in
+    if beta <= new_alpha then
+        v
+
+    else
+        case children of
+            c :: [] ->
+                v
+
+            c :: cs ->
+                take_max cs depth alpha beta v
+
+            [] ->
+                v
+
+
+
+-- should never occur
+
+
+take_min : List ( GameState, Int ) -> Int -> Int -> Int -> Int -> Int
 take_min children depth alpha beta value =
-    let 
-        v = case children of 
-                [] -> value
-                (c::cs) -> min value (alpha_beta (Tuple.first c) (depth - 1) alpha beta)
-        new_beta = min beta v
-    in 
-        if new_beta <= alpha then
-            v
-        else
-            case children of 
-                (c::[]) -> v
-                (c::cs) -> take_min cs depth alpha beta v
-                [] -> v -- should never occur
+    let
+        v =
+            case children of
+                [] ->
+                    value
+
+                c :: cs ->
+                    min value (alpha_beta (Tuple.first c) (depth - 1) alpha beta)
+
+        new_beta =
+            min beta v
+    in
+    if new_beta <= alpha then
+        v
+
+    else
+        case children of
+            c :: [] ->
+                v
+
+            c :: cs ->
+                take_min cs depth alpha beta v
+
+            [] ->
+                v
+
+
+
+-- should never occur
+
 
 alpha_beta : GameState -> Int -> Int -> Int -> Int
-alpha_beta game_state depth alpha beta = -- returns value of game_state
+alpha_beta game_state depth alpha beta =
+    -- returns value of game_state
     if depth == 0 || is_game_state_final game_state then
-        heuristic game_state 
-    else 
-        case game_state.active_player of 
-            Player ->  -- maximizing player 
+        heuristic game_state
+
+    else
+        case game_state.active_player of
+            Player ->
+                -- maximizing player
                 take_max (get_all_children_and_actions game_state) depth alpha beta -9999
-            Opponent -> -- minimizing player 
+
+            Opponent ->
+                -- minimizing player
                 take_min (get_all_children_and_actions game_state) depth alpha beta 9999
 
 
 move_decision_ai game_state max_depth =
-    let 
-        children_actions = get_all_children_and_actions game_state
-        values_actions = List.map (\(gs,a) -> (alpha_beta gs max_depth -9999 9999, a)) children_actions
+    let
+        children_actions =
+            get_all_children_and_actions game_state
+
+        values_actions =
+            List.map (\( gs, a ) -> ( alpha_beta gs max_depth -9999 9999, a )) children_actions
+
         get_best_move remaining_values_actions best_value_action_so_far =
             case remaining_values_actions of
-                [] -> Tuple.second best_value_action_so_far
-                (va::vas) -> if Tuple.first va < Tuple.first best_value_action_so_far 
-                            then get_best_move vas va
-                            else get_best_move vas best_value_action_so_far
+                [] ->
+                    Tuple.second best_value_action_so_far
+
+                va :: vas ->
+                    if Tuple.first va < Tuple.first best_value_action_so_far then
+                        get_best_move vas va
+
+                    else
+                        get_best_move vas best_value_action_so_far
     in
-        get_best_move values_actions (9999, -1)
+    get_best_move values_actions ( 9999, -1 )
+
 
 
 -- responses to messages:
+
 
 perform_legal_user_action model index =
     let
@@ -404,6 +508,7 @@ perform_legal_user_action model index =
 perform_user_action model index =
     if is_legal_move model.game_state index then
         perform_legal_user_action model index
+
     else
         model
 
@@ -422,12 +527,18 @@ change_rule_visibility model =
 
 
 ask_ai_to_move model =
-    case model.game_state.active_player of 
-        Player -> model 
-        Opponent -> let 
-                        index = move_decision_ai model.game_state 2
-                    in 
-                        perform_legal_user_action model index
+    case model.game_state.active_player of
+        Player ->
+            model
+
+        Opponent ->
+            let
+                index =
+                    move_decision_ai model.game_state 2
+            in
+            perform_legal_user_action model index
+
+
 
 -- UPDATE
 
@@ -455,7 +566,7 @@ update msg model =
 
         AskAI ->
             ask_ai_to_move model
-        
+
         NewGamePvP ->
             init_model Player_vs_Player
 
@@ -467,14 +578,15 @@ update msg model =
 -- VIEW
 
 
-
 green =
     rgb 0.0 1.0 0.0
+
 
 gray =
     rgb 0.6 0.6 0.6
 
-white = 
+
+white =
     rgb 1.0 1.0 1.0
 
 
@@ -491,7 +603,13 @@ view model =
 
                         Nothing ->
                             0
-                on_press_event = if clickable then Just (Action index) else Nothing
+
+                on_press_event =
+                    if clickable then
+                        Just (Action index)
+
+                    else
+                        Nothing
             in
             Input.button [ width (px 100), Font.center, padding 30, Border.width 3, Border.rounded 80, Background.color col, Font.size 36 ]
                 { onPress = on_press_event, label = num_marbles |> String.fromInt |> text }
@@ -505,7 +623,7 @@ view model =
                     view_single_hole gray True
 
         view_single_hole_opponent =
-            case model.game_type of 
+            case model.game_type of
                 Player_vs_Player ->
                     case model.game_state.active_player of
                         Player ->
@@ -513,6 +631,7 @@ view model =
 
                         Opponent ->
                             view_single_hole green True
+
                 Player_vs_AI ->
                     view_single_hole gray False
 
@@ -533,7 +652,7 @@ view model =
                     0
 
         player_B =
-            case model.game_type of 
+            case model.game_type of
                 Player_vs_Player ->
                     case model.game_state.active_player of
                         Player ->
@@ -541,25 +660,28 @@ view model =
 
                         Opponent ->
                             row [ padding 6, centerX, Font.size 28, Background.color green ] [ text "← Player B" ]
-                Player_vs_AI -> 
+
+                Player_vs_AI ->
                     case model.game_state.active_player of
                         Player ->
                             row [ padding 6, centerX, Font.size 28 ] [ text "← AI opponent" ]
 
                         Opponent ->
-                            row [centerX] [ 
-                                Input.button [Border.width 3, Border.rounded 10, padding 3, Font.size 28, Background.color green] 
+                            row [ centerX ]
+                                [ Input.button [ Border.width 3, Border.rounded 10, padding 3, Font.size 28, Background.color green ]
                                     { onPress = Just AskAI, label = text "← AI opponent" }
-                             ]
+                                ]
 
-        player_A = row [ padding 6, centerX, Font.size 28 ] [ text "Player A →" ]
-            {-case model.game_state.active_player of
-                Player ->
-                    row [ padding 6, centerX, Font.size 28, Background.color green ] [ text "Player A →" ]
+        player_A =
+            row [ padding 6, centerX, Font.size 28 ] [ text "Player A →" ]
 
-                Opponent ->
-                    row [ padding 6, centerX, Font.size 28 ] [ text "Player A →" ] -}
+        {- case model.game_state.active_player of
+           Player ->
+               row [ padding 6, centerX, Font.size 28, Background.color green ] [ text "Player A →" ]
 
+           Opponent ->
+               row [ padding 6, centerX, Font.size 28 ] [ text "Player A →" ]
+        -}
         show_rules =
             if model.rules_visible then
                 rules_text_element
@@ -570,31 +692,38 @@ view model =
         show_rules_button =
             row [ padding 5 ] [ Input.button [ Border.width 3, Border.rounded 10, padding 8, Font.size 28 ] { onPress = Just ChangeRuleVisibility, label = text "Show Rules" } ]
 
-        undo_last_move_button = 
+        undo_last_move_button =
             row [ padding 5 ] [ Input.button [ Border.width 3, Border.rounded 10, padding 8, Font.size 28 ] { onPress = Just Revert, label = text "Undo last move" } ]
 
-
-        button_pvp = 
-            let 
-                button_pvp_helper col = row [alignLeft] [Input.button [ Font.size 28, Border.width 3, Border.rounded 10, padding 8, Background.color col]   { onPress = Just NewGamePvP, label = text "Player vs. Player game" } ]
+        button_pvp =
+            let
+                button_pvp_helper col =
+                    row [ alignLeft ] [ Input.button [ Font.size 28, Border.width 3, Border.rounded 10, padding 8, Background.color col ] { onPress = Just NewGamePvP, label = text "Player vs. Player game" } ]
             in
-                case model.game_type of 
-                    Player_vs_Player -> button_pvp_helper gray  
-                    Player_vs_AI -> button_pvp_helper white
+            case model.game_type of
+                Player_vs_Player ->
+                    button_pvp_helper gray
 
-        button_pvai = 
-            let 
-                button_pvai_helper col = row [alignRight] [Input.button [ Font.size 28, Border.width 3, Border.rounded 10, padding 8, Background.color col]  { onPress = Just NewGamePvAI, label = text "Player vs. AI game" } ]
+                Player_vs_AI ->
+                    button_pvp_helper white
+
+        button_pvai =
+            let
+                button_pvai_helper col =
+                    row [ alignRight ] [ Input.button [ Font.size 28, Border.width 3, Border.rounded 10, padding 8, Background.color col ] { onPress = Just NewGamePvAI, label = text "Player vs. AI game" } ]
             in
-                case model.game_type of 
-                    Player_vs_Player -> button_pvai_helper white  
-                    Player_vs_AI -> button_pvai_helper gray          
+            case model.game_type of
+                Player_vs_Player ->
+                    button_pvai_helper white
 
-        game_type_selection_bar = 
-            row [padding 2, width fill, Font.size 28, Border.width 3] [
-                  button_pvp
+                Player_vs_AI ->
+                    button_pvai_helper gray
+
+        game_type_selection_bar =
+            row [ padding 2, width fill, Font.size 28, Border.width 3 ]
+                [ button_pvp
                 , button_pvai
-            ]
+                ]
 
         board_ui =
             row [ padding 5, Border.width 4, Border.rounded 10, centerY, centerX, spacing 20 ]
@@ -611,19 +740,14 @@ view model =
     layout [ width fill, height fill ] <|
         column [ padding 15 ]
             [ game_type_selection_bar
-            , row [padding 10] [] -- some vertical space
+            , row [ padding 10 ] [] -- some vertical space
             , player_B
             , board_ui
             , player_A
-            -- TODO: Should the alpha beta value be shown to the user?
-            --, row [] [ alpha_beta model.game_state 3 -9999 9999 |> String.fromInt |> text]
-            --, row [] [ heuristic model.game_state |> String.fromInt |> text]
-            --, row [] [ get_score_for_player Player model.game_state |> String.fromInt |> text]
-            --, row [] [ get_score_for_player Opponent model.game_state |> String.fromInt |> text]
-            , row [padding 10] [] -- some vertical space
-            , row [] [
-                      undo_last_move_button
-                    , show_rules_button
+            , row [ padding 10 ] [] -- some vertical space
+            , row []
+                [ undo_last_move_button
+                , show_rules_button
                 ]
             , show_rules
             ]
