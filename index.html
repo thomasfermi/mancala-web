@@ -4359,6 +4359,8 @@ function _Browser_load(url)
 }
 var author$project$Main$Player = {$: 'Player'};
 var author$project$Main$initial_num_marbles_per_hole = 4;
+var author$project$Main$Player_vs_Player = {$: 'Player_vs_Player'};
+var author$project$Main$my_game_type = author$project$Main$Player_vs_Player;
 var author$project$Main$total_num_holes = 14;
 var elm$core$Array$branchFactor = 32;
 var elm$core$Array$Array_elm_builtin = F4(
@@ -4682,14 +4684,8 @@ var author$project$Main$initialModel = function () {
 			delete_player_mancala(all_full));
 	}();
 	var initial_game_state = {active_player: author$project$Main$Player, board_state: initial_board_state};
-	return {game_state: initial_game_state, last_game_state: elm$core$Maybe$Nothing, rules_visible: false};
+	return {game_state: initial_game_state, game_type: author$project$Main$my_game_type, last_game_state: elm$core$Maybe$Nothing, rules_visible: false};
 }();
-var elm$core$Basics$not = _Basics_not;
-var author$project$Main$change_rule_visibility = function (model) {
-	return _Utils_update(
-		model,
-		{rules_visible: !model.rules_visible});
-};
 var elm$core$Array$getHelp = F3(
 	function (shift, index, tree) {
 		getHelp:
@@ -4896,6 +4892,648 @@ var author$project$Main$make_move = F2(
 			num_marbles,
 			author$project$Main$wrapped_int_increment(index));
 	});
+var elm$core$Basics$neq = _Utils_notEqual;
+var elm$core$List$foldrHelper = F4(
+	function (fn, acc, ctr, ls) {
+		if (!ls.b) {
+			return acc;
+		} else {
+			var a = ls.a;
+			var r1 = ls.b;
+			if (!r1.b) {
+				return A2(fn, a, acc);
+			} else {
+				var b = r1.a;
+				var r2 = r1.b;
+				if (!r2.b) {
+					return A2(
+						fn,
+						a,
+						A2(fn, b, acc));
+				} else {
+					var c = r2.a;
+					var r3 = r2.b;
+					if (!r3.b) {
+						return A2(
+							fn,
+							a,
+							A2(
+								fn,
+								b,
+								A2(fn, c, acc)));
+					} else {
+						var d = r3.a;
+						var r4 = r3.b;
+						var res = (ctr > 500) ? A3(
+							elm$core$List$foldl,
+							fn,
+							acc,
+							elm$core$List$reverse(r4)) : A4(elm$core$List$foldrHelper, fn, acc, ctr + 1, r4);
+						return A2(
+							fn,
+							a,
+							A2(
+								fn,
+								b,
+								A2(
+									fn,
+									c,
+									A2(fn, d, res))));
+					}
+				}
+			}
+		}
+	});
+var elm$core$List$foldr = F3(
+	function (fn, acc, ls) {
+		return A4(elm$core$List$foldrHelper, fn, acc, 0, ls);
+	});
+var elm$core$List$append = F2(
+	function (xs, ys) {
+		if (!ys.b) {
+			return xs;
+		} else {
+			return A3(elm$core$List$foldr, elm$core$List$cons, ys, xs);
+		}
+	});
+var elm$core$List$concat = function (lists) {
+	return A3(elm$core$List$foldr, elm$core$List$append, _List_Nil, lists);
+};
+var elm$core$List$map = F2(
+	function (f, xs) {
+		return A3(
+			elm$core$List$foldr,
+			F2(
+				function (x, acc) {
+					return A2(
+						elm$core$List$cons,
+						f(x),
+						acc);
+				}),
+			_List_Nil,
+			xs);
+	});
+var elm$core$List$concatMap = F2(
+	function (f, list) {
+		return elm$core$List$concat(
+			A2(elm$core$List$map, f, list));
+	});
+var elm$core$List$rangeHelp = F3(
+	function (lo, hi, list) {
+		rangeHelp:
+		while (true) {
+			if (_Utils_cmp(lo, hi) < 1) {
+				var $temp$lo = lo,
+					$temp$hi = hi - 1,
+					$temp$list = A2(elm$core$List$cons, hi, list);
+				lo = $temp$lo;
+				hi = $temp$hi;
+				list = $temp$list;
+				continue rangeHelp;
+			} else {
+				return list;
+			}
+		}
+	});
+var elm$core$List$range = F2(
+	function (lo, hi) {
+		return A3(elm$core$List$rangeHelp, lo, hi, _List_Nil);
+	});
+var elm$core$Tuple$second = function (_n0) {
+	var y = _n0.b;
+	return y;
+};
+var author$project$Main$explore_all_reachable_states = F2(
+	function (game_state, hole) {
+		if (A2(author$project$Main$is_legal_move, game_state, hole)) {
+			var resulting_game_state = A2(author$project$Main$make_move, game_state, hole);
+			if (!_Utils_eq(resulting_game_state.active_player, game_state.active_player)) {
+				return _List_fromArray(
+					[resulting_game_state]);
+			} else {
+				var hole_range = function () {
+					var _n0 = game_state.active_player;
+					if (_n0.$ === 'Player') {
+						return _Utils_Tuple2(0, 5);
+					} else {
+						return _Utils_Tuple2(7, 12);
+					}
+				}();
+				var s = hole_range.a;
+				var e = hole_range.b;
+				var list_of_reachable_states = A2(
+					elm$core$List$concatMap,
+					author$project$Main$explore_all_reachable_states(resulting_game_state),
+					A2(elm$core$List$range, s, e));
+				return A2(elm$core$List$cons, resulting_game_state, list_of_reachable_states);
+			}
+		} else {
+			return _List_Nil;
+		}
+	});
+var elm$core$Basics$not = _Basics_not;
+var elm$core$List$filter = F2(
+	function (isGood, list) {
+		return A3(
+			elm$core$List$foldr,
+			F2(
+				function (x, xs) {
+					return isGood(x) ? A2(elm$core$List$cons, x, xs) : xs;
+				}),
+			_List_Nil,
+			list);
+	});
+var elm$core$List$length = function (xs) {
+	return A3(
+		elm$core$List$foldl,
+		F2(
+			function (_n0, i) {
+				return i + 1;
+			}),
+		0,
+		xs);
+};
+var elm$core$List$map2 = _List_map2;
+var elm$core$List$indexedMap = F2(
+	function (f, xs) {
+		return A3(
+			elm$core$List$map2,
+			f,
+			A2(
+				elm$core$List$range,
+				0,
+				elm$core$List$length(xs) - 1),
+			xs);
+	});
+var elm$core$List$isEmpty = function (xs) {
+	if (!xs.b) {
+		return true;
+	} else {
+		return false;
+	}
+};
+var author$project$Main$get_all_children_and_actions = function (game_state) {
+	var offset = _Utils_eq(game_state.active_player, author$project$Main$Player) ? 0 : 7;
+	var hole_range = function () {
+		var _n1 = game_state.active_player;
+		if (_n1.$ === 'Player') {
+			return _Utils_Tuple2(0, 5);
+		} else {
+			return _Utils_Tuple2(7, 12);
+		}
+	}();
+	var s = hole_range.a;
+	var filter_func = function (x) {
+		return !elm$core$List$isEmpty(x.b);
+	};
+	var expansion_func = function (_n0) {
+		var i = _n0.a;
+		var l = _n0.b;
+		return A2(
+			elm$core$List$map,
+			function (x) {
+				return _Utils_Tuple2(x, i);
+			},
+			l);
+	};
+	var e = hole_range.b;
+	var list_of_list_of_states = A2(
+		elm$core$List$map,
+		author$project$Main$explore_all_reachable_states(game_state),
+		A2(elm$core$List$range, s, e));
+	var list_with_applied_tupling = A2(
+		elm$core$List$indexedMap,
+		F2(
+			function (index, state) {
+				return _Utils_Tuple2(index + offset, state);
+			}),
+		list_of_list_of_states);
+	var filtered_list_with_applied_tupling = A2(elm$core$List$filter, filter_func, list_with_applied_tupling);
+	var result = A2(elm$core$List$concatMap, expansion_func, filtered_list_with_applied_tupling);
+	return result;
+};
+var elm$core$Elm$JsArray$appendN = _JsArray_appendN;
+var elm$core$Elm$JsArray$slice = _JsArray_slice;
+var elm$core$Array$appendHelpBuilder = F2(
+	function (tail, builder) {
+		var tailLen = elm$core$Elm$JsArray$length(tail);
+		var notAppended = (elm$core$Array$branchFactor - elm$core$Elm$JsArray$length(builder.tail)) - tailLen;
+		var appended = A3(elm$core$Elm$JsArray$appendN, elm$core$Array$branchFactor, builder.tail, tail);
+		return (notAppended < 0) ? {
+			nodeList: A2(
+				elm$core$List$cons,
+				elm$core$Array$Leaf(appended),
+				builder.nodeList),
+			nodeListSize: builder.nodeListSize + 1,
+			tail: A3(elm$core$Elm$JsArray$slice, notAppended, tailLen, tail)
+		} : ((!notAppended) ? {
+			nodeList: A2(
+				elm$core$List$cons,
+				elm$core$Array$Leaf(appended),
+				builder.nodeList),
+			nodeListSize: builder.nodeListSize + 1,
+			tail: elm$core$Elm$JsArray$empty
+		} : {nodeList: builder.nodeList, nodeListSize: builder.nodeListSize, tail: appended});
+	});
+var elm$core$List$drop = F2(
+	function (n, list) {
+		drop:
+		while (true) {
+			if (n <= 0) {
+				return list;
+			} else {
+				if (!list.b) {
+					return list;
+				} else {
+					var x = list.a;
+					var xs = list.b;
+					var $temp$n = n - 1,
+						$temp$list = xs;
+					n = $temp$n;
+					list = $temp$list;
+					continue drop;
+				}
+			}
+		}
+	});
+var elm$core$Array$sliceLeft = F2(
+	function (from, array) {
+		var len = array.a;
+		var tree = array.c;
+		var tail = array.d;
+		if (!from) {
+			return array;
+		} else {
+			if (_Utils_cmp(
+				from,
+				elm$core$Array$tailIndex(len)) > -1) {
+				return A4(
+					elm$core$Array$Array_elm_builtin,
+					len - from,
+					elm$core$Array$shiftStep,
+					elm$core$Elm$JsArray$empty,
+					A3(
+						elm$core$Elm$JsArray$slice,
+						from - elm$core$Array$tailIndex(len),
+						elm$core$Elm$JsArray$length(tail),
+						tail));
+			} else {
+				var skipNodes = (from / elm$core$Array$branchFactor) | 0;
+				var helper = F2(
+					function (node, acc) {
+						if (node.$ === 'SubTree') {
+							var subTree = node.a;
+							return A3(elm$core$Elm$JsArray$foldr, helper, acc, subTree);
+						} else {
+							var leaf = node.a;
+							return A2(elm$core$List$cons, leaf, acc);
+						}
+					});
+				var leafNodes = A3(
+					elm$core$Elm$JsArray$foldr,
+					helper,
+					_List_fromArray(
+						[tail]),
+					tree);
+				var nodesToInsert = A2(elm$core$List$drop, skipNodes, leafNodes);
+				if (!nodesToInsert.b) {
+					return elm$core$Array$empty;
+				} else {
+					var head = nodesToInsert.a;
+					var rest = nodesToInsert.b;
+					var firstSlice = from - (skipNodes * elm$core$Array$branchFactor);
+					var initialBuilder = {
+						nodeList: _List_Nil,
+						nodeListSize: 0,
+						tail: A3(
+							elm$core$Elm$JsArray$slice,
+							firstSlice,
+							elm$core$Elm$JsArray$length(head),
+							head)
+					};
+					return A2(
+						elm$core$Array$builderToArray,
+						true,
+						A3(elm$core$List$foldl, elm$core$Array$appendHelpBuilder, initialBuilder, rest));
+				}
+			}
+		}
+	});
+var elm$core$Array$fetchNewTail = F4(
+	function (shift, end, treeEnd, tree) {
+		fetchNewTail:
+		while (true) {
+			var pos = elm$core$Array$bitMask & (treeEnd >>> shift);
+			var _n0 = A2(elm$core$Elm$JsArray$unsafeGet, pos, tree);
+			if (_n0.$ === 'SubTree') {
+				var sub = _n0.a;
+				var $temp$shift = shift - elm$core$Array$shiftStep,
+					$temp$end = end,
+					$temp$treeEnd = treeEnd,
+					$temp$tree = sub;
+				shift = $temp$shift;
+				end = $temp$end;
+				treeEnd = $temp$treeEnd;
+				tree = $temp$tree;
+				continue fetchNewTail;
+			} else {
+				var values = _n0.a;
+				return A3(elm$core$Elm$JsArray$slice, 0, elm$core$Array$bitMask & end, values);
+			}
+		}
+	});
+var elm$core$Array$hoistTree = F3(
+	function (oldShift, newShift, tree) {
+		hoistTree:
+		while (true) {
+			if ((_Utils_cmp(oldShift, newShift) < 1) || (!elm$core$Elm$JsArray$length(tree))) {
+				return tree;
+			} else {
+				var _n0 = A2(elm$core$Elm$JsArray$unsafeGet, 0, tree);
+				if (_n0.$ === 'SubTree') {
+					var sub = _n0.a;
+					var $temp$oldShift = oldShift - elm$core$Array$shiftStep,
+						$temp$newShift = newShift,
+						$temp$tree = sub;
+					oldShift = $temp$oldShift;
+					newShift = $temp$newShift;
+					tree = $temp$tree;
+					continue hoistTree;
+				} else {
+					return tree;
+				}
+			}
+		}
+	});
+var elm$core$Array$sliceTree = F3(
+	function (shift, endIdx, tree) {
+		var lastPos = elm$core$Array$bitMask & (endIdx >>> shift);
+		var _n0 = A2(elm$core$Elm$JsArray$unsafeGet, lastPos, tree);
+		if (_n0.$ === 'SubTree') {
+			var sub = _n0.a;
+			var newSub = A3(elm$core$Array$sliceTree, shift - elm$core$Array$shiftStep, endIdx, sub);
+			return (!elm$core$Elm$JsArray$length(newSub)) ? A3(elm$core$Elm$JsArray$slice, 0, lastPos, tree) : A3(
+				elm$core$Elm$JsArray$unsafeSet,
+				lastPos,
+				elm$core$Array$SubTree(newSub),
+				A3(elm$core$Elm$JsArray$slice, 0, lastPos + 1, tree));
+		} else {
+			return A3(elm$core$Elm$JsArray$slice, 0, lastPos, tree);
+		}
+	});
+var elm$core$Array$sliceRight = F2(
+	function (end, array) {
+		var len = array.a;
+		var startShift = array.b;
+		var tree = array.c;
+		var tail = array.d;
+		if (_Utils_eq(end, len)) {
+			return array;
+		} else {
+			if (_Utils_cmp(
+				end,
+				elm$core$Array$tailIndex(len)) > -1) {
+				return A4(
+					elm$core$Array$Array_elm_builtin,
+					end,
+					startShift,
+					tree,
+					A3(elm$core$Elm$JsArray$slice, 0, elm$core$Array$bitMask & end, tail));
+			} else {
+				var endIdx = elm$core$Array$tailIndex(end);
+				var depth = elm$core$Basics$floor(
+					A2(
+						elm$core$Basics$logBase,
+						elm$core$Array$branchFactor,
+						A2(elm$core$Basics$max, 1, endIdx - 1)));
+				var newShift = A2(elm$core$Basics$max, 5, depth * elm$core$Array$shiftStep);
+				return A4(
+					elm$core$Array$Array_elm_builtin,
+					end,
+					newShift,
+					A3(
+						elm$core$Array$hoistTree,
+						startShift,
+						newShift,
+						A3(elm$core$Array$sliceTree, startShift, endIdx, tree)),
+					A4(elm$core$Array$fetchNewTail, startShift, end, endIdx, tree));
+			}
+		}
+	});
+var elm$core$Array$translateIndex = F2(
+	function (index, _n0) {
+		var len = _n0.a;
+		var posIndex = (index < 0) ? (len + index) : index;
+		return (posIndex < 0) ? 0 : ((_Utils_cmp(posIndex, len) > 0) ? len : posIndex);
+	});
+var elm$core$Array$slice = F3(
+	function (from, to, array) {
+		var correctTo = A2(elm$core$Array$translateIndex, to, array);
+		var correctFrom = A2(elm$core$Array$translateIndex, from, array);
+		return (_Utils_cmp(correctFrom, correctTo) > 0) ? elm$core$Array$empty : A2(
+			elm$core$Array$sliceLeft,
+			correctFrom,
+			A2(elm$core$Array$sliceRight, correctTo, array));
+	});
+var elm$core$List$sum = function (numbers) {
+	return A3(elm$core$List$foldl, elm$core$Basics$add, 0, numbers);
+};
+var author$project$Main$get_score_for_player = F2(
+	function (player, game_state) {
+		if (player.$ === 'Player') {
+			return elm$core$List$sum(
+				elm$core$Array$toList(
+					A3(elm$core$Array$slice, 0, 7, game_state.board_state)));
+		} else {
+			return elm$core$List$sum(
+				elm$core$Array$toList(
+					A3(elm$core$Array$slice, 7, 14, game_state.board_state)));
+		}
+	});
+var author$project$Main$heuristic = function (game_state) {
+	return A2(author$project$Main$get_score_for_player, author$project$Main$Player, game_state) - A2(author$project$Main$get_score_for_player, author$project$Main$Opponent, game_state);
+};
+var author$project$Main$is_game_state_final = function (game_state) {
+	var get_num_marbles_in_all_holes_for = function (player) {
+		if (player.$ === 'Player') {
+			return elm$core$List$sum(
+				elm$core$Array$toList(
+					A3(elm$core$Array$slice, 0, 5, game_state.board_state)));
+		} else {
+			return elm$core$List$sum(
+				elm$core$Array$toList(
+					A3(elm$core$Array$slice, 7, 12, game_state.board_state)));
+		}
+	};
+	var opponent_marbles = get_num_marbles_in_all_holes_for(author$project$Main$Opponent);
+	var player_marbles = get_num_marbles_in_all_holes_for(author$project$Main$Player);
+	return (!player_marbles) || (!opponent_marbles);
+};
+var elm$core$Basics$min = F2(
+	function (x, y) {
+		return (_Utils_cmp(x, y) < 0) ? x : y;
+	});
+var elm$core$Basics$negate = function (n) {
+	return -n;
+};
+var author$project$Main$alpha_beta = F4(
+	function (game_state, depth, alpha, beta) {
+		if ((!depth) || author$project$Main$is_game_state_final(game_state)) {
+			return author$project$Main$heuristic(game_state);
+		} else {
+			var _n4 = game_state.active_player;
+			if (_n4.$ === 'Player') {
+				return A5(
+					author$project$Main$take_max,
+					author$project$Main$get_all_children_and_actions(game_state),
+					depth,
+					alpha,
+					beta,
+					-9999);
+			} else {
+				return A5(
+					author$project$Main$take_min,
+					author$project$Main$get_all_children_and_actions(game_state),
+					depth,
+					alpha,
+					beta,
+					9999);
+			}
+		}
+	});
+var author$project$Main$take_max = F5(
+	function (children, depth, alpha, beta, value) {
+		take_max:
+		while (true) {
+			var v = function () {
+				if (!children.b) {
+					return value;
+				} else {
+					var c = children.a;
+					var cs = children.b;
+					return A2(
+						elm$core$Basics$max,
+						value,
+						A4(author$project$Main$alpha_beta, c.a, depth - 1, alpha, beta));
+				}
+			}();
+			var new_alpha = A2(elm$core$Basics$max, alpha, v);
+			if (_Utils_cmp(beta, new_alpha) < 1) {
+				return v;
+			} else {
+				if (children.b) {
+					if (!children.b.b) {
+						var c = children.a;
+						return v;
+					} else {
+						var c = children.a;
+						var cs = children.b;
+						var $temp$children = cs,
+							$temp$depth = depth,
+							$temp$alpha = alpha,
+							$temp$beta = beta,
+							$temp$value = v;
+						children = $temp$children;
+						depth = $temp$depth;
+						alpha = $temp$alpha;
+						beta = $temp$beta;
+						value = $temp$value;
+						continue take_max;
+					}
+				} else {
+					return v;
+				}
+			}
+		}
+	});
+var author$project$Main$take_min = F5(
+	function (children, depth, alpha, beta, value) {
+		take_min:
+		while (true) {
+			var v = function () {
+				if (!children.b) {
+					return value;
+				} else {
+					var c = children.a;
+					var cs = children.b;
+					return A2(
+						elm$core$Basics$min,
+						value,
+						A4(author$project$Main$alpha_beta, c.a, depth - 1, alpha, beta));
+				}
+			}();
+			var new_beta = A2(elm$core$Basics$min, beta, v);
+			if (_Utils_cmp(new_beta, alpha) < 1) {
+				return v;
+			} else {
+				if (children.b) {
+					if (!children.b.b) {
+						var c = children.a;
+						return v;
+					} else {
+						var c = children.a;
+						var cs = children.b;
+						var $temp$children = cs,
+							$temp$depth = depth,
+							$temp$alpha = alpha,
+							$temp$beta = beta,
+							$temp$value = v;
+						children = $temp$children;
+						depth = $temp$depth;
+						alpha = $temp$alpha;
+						beta = $temp$beta;
+						value = $temp$value;
+						continue take_min;
+					}
+				} else {
+					return v;
+				}
+			}
+		}
+	});
+var author$project$Main$move_decision_ai = F2(
+	function (game_state, max_depth) {
+		var get_best_move = F2(
+			function (remaining_values_actions, best_value_action_so_far) {
+				get_best_move:
+				while (true) {
+					if (!remaining_values_actions.b) {
+						return best_value_action_so_far.b;
+					} else {
+						var va = remaining_values_actions.a;
+						var vas = remaining_values_actions.b;
+						if (_Utils_cmp(va.a, best_value_action_so_far.a) < 0) {
+							var $temp$remaining_values_actions = vas,
+								$temp$best_value_action_so_far = va;
+							remaining_values_actions = $temp$remaining_values_actions;
+							best_value_action_so_far = $temp$best_value_action_so_far;
+							continue get_best_move;
+						} else {
+							var $temp$remaining_values_actions = vas,
+								$temp$best_value_action_so_far = best_value_action_so_far;
+							remaining_values_actions = $temp$remaining_values_actions;
+							best_value_action_so_far = $temp$best_value_action_so_far;
+							continue get_best_move;
+						}
+					}
+				}
+			});
+		var children_actions = author$project$Main$get_all_children_and_actions(game_state);
+		var values_actions = A2(
+			elm$core$List$map,
+			function (_n1) {
+				var gs = _n1.a;
+				var a = _n1.b;
+				return _Utils_Tuple2(
+					A4(author$project$Main$alpha_beta, gs, max_depth, -9999, 9999),
+					a);
+			},
+			children_actions);
+		return A2(
+			get_best_move,
+			values_actions,
+			_Utils_Tuple2(9999, -1));
+	});
 var author$project$Main$perform_legal_user_action = F2(
 	function (model, index) {
 		var new_game_state = A2(author$project$Main$make_move, model.game_state, index);
@@ -4904,6 +5542,20 @@ var author$project$Main$perform_legal_user_action = F2(
 			model,
 			{game_state: new_game_state, last_game_state: last_game_state});
 	});
+var author$project$Main$ask_ai_to_move = function (model) {
+	var _n0 = model.game_state.active_player;
+	if (_n0.$ === 'Player') {
+		return model;
+	} else {
+		var index = A2(author$project$Main$move_decision_ai, model.game_state, 2);
+		return A2(author$project$Main$perform_legal_user_action, model, index);
+	}
+};
+var author$project$Main$change_rule_visibility = function (model) {
+	return _Utils_update(
+		model,
+		{rules_visible: !model.rules_visible});
+};
 var author$project$Main$perform_user_action = F2(
 	function (model, index) {
 		return A2(author$project$Main$is_legal_move, model.game_state, index) ? A2(author$project$Main$perform_legal_user_action, model, index) : model;
@@ -4927,13 +5579,16 @@ var author$project$Main$update = F2(
 				return A2(author$project$Main$perform_user_action, model, index);
 			case 'Revert':
 				return author$project$Main$revert(model);
-			default:
+			case 'ChangeRuleVisibility':
 				return author$project$Main$change_rule_visibility(model);
+			default:
+				return author$project$Main$ask_ai_to_move(model);
 		}
 	});
 var author$project$Main$Action = function (a) {
 	return {$: 'Action', a: a};
 };
+var author$project$Main$AskAI = {$: 'AskAI'};
 var author$project$Main$ChangeRuleVisibility = {$: 'ChangeRuleVisibility'};
 var author$project$Main$Revert = {$: 'Revert'};
 var mdgriffith$elm_ui$Internal$Model$Rgba = F4(
@@ -4995,49 +5650,6 @@ var elm$core$Char$isDigit = function (_char) {
 var elm$core$Char$isAlphaNum = function (_char) {
 	return elm$core$Char$isLower(_char) || (elm$core$Char$isUpper(_char) || elm$core$Char$isDigit(_char));
 };
-var elm$core$List$length = function (xs) {
-	return A3(
-		elm$core$List$foldl,
-		F2(
-			function (_n0, i) {
-				return i + 1;
-			}),
-		0,
-		xs);
-};
-var elm$core$List$map2 = _List_map2;
-var elm$core$List$rangeHelp = F3(
-	function (lo, hi, list) {
-		rangeHelp:
-		while (true) {
-			if (_Utils_cmp(lo, hi) < 1) {
-				var $temp$lo = lo,
-					$temp$hi = hi - 1,
-					$temp$list = A2(elm$core$List$cons, hi, list);
-				lo = $temp$lo;
-				hi = $temp$hi;
-				list = $temp$list;
-				continue rangeHelp;
-			} else {
-				return list;
-			}
-		}
-	});
-var elm$core$List$range = F2(
-	function (lo, hi) {
-		return A3(elm$core$List$rangeHelp, lo, hi, _List_Nil);
-	});
-var elm$core$List$indexedMap = F2(
-	function (f, xs) {
-		return A3(
-			elm$core$List$map2,
-			f,
-			A2(
-				elm$core$List$range,
-				0,
-				elm$core$List$length(xs) - 1),
-			xs);
-	});
 var elm$core$String$all = _String_all;
 var elm$core$String$fromInt = _String_fromNumber;
 var elm$core$String$join = F2(
@@ -5246,68 +5858,6 @@ var mdgriffith$elm_ui$Internal$Model$contextClasses = function (context) {
 			return mdgriffith$elm_ui$Internal$Model$pageClass;
 	}
 };
-var elm$core$List$foldrHelper = F4(
-	function (fn, acc, ctr, ls) {
-		if (!ls.b) {
-			return acc;
-		} else {
-			var a = ls.a;
-			var r1 = ls.b;
-			if (!r1.b) {
-				return A2(fn, a, acc);
-			} else {
-				var b = r1.a;
-				var r2 = r1.b;
-				if (!r2.b) {
-					return A2(
-						fn,
-						a,
-						A2(fn, b, acc));
-				} else {
-					var c = r2.a;
-					var r3 = r2.b;
-					if (!r3.b) {
-						return A2(
-							fn,
-							a,
-							A2(
-								fn,
-								b,
-								A2(fn, c, acc)));
-					} else {
-						var d = r3.a;
-						var r4 = r3.b;
-						var res = (ctr > 500) ? A3(
-							elm$core$List$foldl,
-							fn,
-							acc,
-							elm$core$List$reverse(r4)) : A4(elm$core$List$foldrHelper, fn, acc, ctr + 1, r4);
-						return A2(
-							fn,
-							a,
-							A2(
-								fn,
-								b,
-								A2(
-									fn,
-									c,
-									A2(fn, d, res))));
-					}
-				}
-			}
-		}
-	});
-var elm$core$List$foldr = F3(
-	function (fn, acc, ls) {
-		return A4(elm$core$List$foldrHelper, fn, acc, 0, ls);
-	});
-var elm$core$List$isEmpty = function (xs) {
-	if (!xs.b) {
-		return true;
-	} else {
-		return false;
-	}
-};
 var mdgriffith$elm_ui$Internal$Model$Keyed = function (a) {
 	return {$: 'Keyed', a: a};
 };
@@ -5336,20 +5886,6 @@ var mdgriffith$elm_ui$Internal$Model$addChildren = F2(
 					behind,
 					_Utils_ap(existing, inFront));
 		}
-	});
-var elm$core$List$map = F2(
-	function (f, xs) {
-		return A3(
-			elm$core$List$foldr,
-			F2(
-				function (x, acc) {
-					return A2(
-						elm$core$List$cons,
-						f(x),
-						acc);
-				}),
-			_List_Nil,
-			xs);
 	});
 var mdgriffith$elm_ui$Internal$Model$addKeyedChildren = F3(
 	function (key, existing, nearbyChildren) {
@@ -5446,10 +5982,6 @@ var elm$core$Set$Set_elm_builtin = function (a) {
 	return {$: 'Set_elm_builtin', a: a};
 };
 var elm$core$Set$empty = elm$core$Set$Set_elm_builtin(elm$core$Dict$empty);
-var elm$core$Tuple$second = function (_n0) {
-	var y = _n0.b;
-	return y;
-};
 var elm$core$Dict$Black = {$: 'Black'};
 var elm$core$Dict$RBNode_elm_builtin = F5(
 	function (a, b, c, d, e) {
@@ -5997,22 +6529,6 @@ var mdgriffith$elm_ui$Internal$Style$Self = function (a) {
 var mdgriffith$elm_ui$Internal$Style$Supports = F2(
 	function (a, b) {
 		return {$: 'Supports', a: a, b: b};
-	});
-var elm$core$List$append = F2(
-	function (xs, ys) {
-		if (!ys.b) {
-			return xs;
-		} else {
-			return A3(elm$core$List$foldr, elm$core$List$cons, ys, xs);
-		}
-	});
-var elm$core$List$concat = function (lists) {
-	return A3(elm$core$List$foldr, elm$core$List$append, _List_Nil, lists);
-};
-var elm$core$List$concatMap = F2(
-	function (f, list) {
-		return elm$core$List$concat(
-			A2(elm$core$List$map, f, list));
 	});
 var mdgriffith$elm_ui$Internal$Style$Content = function (a) {
 	return {$: 'Content', a: a};
@@ -7997,13 +8513,6 @@ var elm$json$Json$Encode$object = function (pairs) {
 			_Json_emptyObject(_Utils_Tuple0),
 			pairs));
 };
-var elm$core$Basics$min = F2(
-	function (x, y) {
-		return (_Utils_cmp(x, y) < 0) ? x : y;
-	});
-var elm$core$Basics$negate = function (n) {
-	return -n;
-};
 var elm$core$List$any = F2(
 	function (isOkay, list) {
 		any:
@@ -8741,18 +9250,6 @@ var mdgriffith$elm_ui$Internal$Model$renderNullAdjustmentRule = F2(
 							_Utils_Tuple2('line-height', '1')
 						]))
 				]));
-	});
-var elm$core$Basics$neq = _Utils_notEqual;
-var elm$core$List$filter = F2(
-	function (isGood, list) {
-		return A3(
-			elm$core$List$foldr,
-			F2(
-				function (x, xs) {
-					return isGood(x) ? A2(elm$core$List$cons, x, xs) : xs;
-				}),
-			_List_Nil,
-			list);
 	});
 var elm$core$List$maximum = function (list) {
 	if (list.b) {
@@ -11031,6 +11528,10 @@ var mdgriffith$elm_ui$Element$alignBottom = mdgriffith$elm_ui$Internal$Model$Ali
 var mdgriffith$elm_ui$Internal$Model$AlignX = function (a) {
 	return {$: 'AlignX', a: a};
 };
+var mdgriffith$elm_ui$Internal$Model$Left = {$: 'Left'};
+var mdgriffith$elm_ui$Element$alignLeft = mdgriffith$elm_ui$Internal$Model$AlignX(mdgriffith$elm_ui$Internal$Model$Left);
+var mdgriffith$elm_ui$Internal$Model$Right = {$: 'Right'};
+var mdgriffith$elm_ui$Element$alignRight = mdgriffith$elm_ui$Internal$Model$AlignX(mdgriffith$elm_ui$Internal$Model$Right);
 var mdgriffith$elm_ui$Internal$Model$CenterX = {$: 'CenterX'};
 var mdgriffith$elm_ui$Element$centerX = mdgriffith$elm_ui$Internal$Model$AlignX(mdgriffith$elm_ui$Internal$Model$CenterX);
 var mdgriffith$elm_ui$Internal$Model$CenterY = {$: 'CenterY'};
@@ -11530,12 +12031,14 @@ var mdgriffith$elm_ui$Element$Input$button = F2(
 					[label])));
 	});
 var author$project$Main$view = function (model) {
-	var view_single_hole = F2(
-		function (col, index) {
+	var view_single_hole = F3(
+		function (col, clickable, index) {
+			var on_press_event = clickable ? elm$core$Maybe$Just(
+				author$project$Main$Action(index)) : elm$core$Maybe$Nothing;
 			var num_marbles = function () {
-				var _n6 = A2(elm$core$Array$get, index, model.game_state.board_state);
-				if (_n6.$ === 'Just') {
-					var i = _n6.a;
+				var _n9 = A2(elm$core$Array$get, index, model.game_state.board_state);
+				if (_n9.$ === 'Just') {
+					var i = _n9.a;
 					return i;
 				} else {
 					return 0;
@@ -11557,39 +12060,43 @@ var author$project$Main$view = function (model) {
 				{
 					label: mdgriffith$elm_ui$Element$text(
 						elm$core$String$fromInt(num_marbles)),
-					onPress: elm$core$Maybe$Just(
-						author$project$Main$Action(index))
+					onPress: on_press_event
 				});
 		});
 	var view_single_hole_opponent = function () {
-		var _n5 = model.game_state.active_player;
-		if (_n5.$ === 'Player') {
-			return view_single_hole(author$project$Main$gray);
+		var _n7 = model.game_type;
+		if (_n7.$ === 'Player_vs_Player') {
+			var _n8 = model.game_state.active_player;
+			if (_n8.$ === 'Player') {
+				return A2(view_single_hole, author$project$Main$gray, true);
+			} else {
+				return A2(view_single_hole, author$project$Main$green, true);
+			}
 		} else {
-			return view_single_hole(author$project$Main$green);
+			return A2(view_single_hole, author$project$Main$gray, false);
 		}
 	}();
 	var view_single_hole_player = function () {
-		var _n4 = model.game_state.active_player;
-		if (_n4.$ === 'Player') {
-			return view_single_hole(author$project$Main$green);
+		var _n6 = model.game_state.active_player;
+		if (_n6.$ === 'Player') {
+			return A2(view_single_hole, author$project$Main$green, true);
 		} else {
-			return view_single_hole(author$project$Main$gray);
+			return A2(view_single_hole, author$project$Main$gray, true);
 		}
 	}();
 	var show_rules = model.rules_visible ? author$project$Main$rules_text_element : mdgriffith$elm_ui$Element$none;
 	var player_mancala = function () {
-		var _n3 = A2(elm$core$Array$get, 6, model.game_state.board_state);
-		if (_n3.$ === 'Just') {
-			var i = _n3.a;
+		var _n5 = A2(elm$core$Array$get, 6, model.game_state.board_state);
+		if (_n5.$ === 'Just') {
+			var i = _n5.a;
 			return i;
 		} else {
 			return 0;
 		}
 	}();
 	var player_B = function () {
-		var _n2 = model.game_state.active_player;
-		if (_n2.$ === 'Player') {
+		var _n4 = model.game_state.active_player;
+		if (_n4.$ === 'Player') {
 			return A2(
 				mdgriffith$elm_ui$Element$row,
 				_List_fromArray(
@@ -11619,8 +12126,8 @@ var author$project$Main$view = function (model) {
 		}
 	}();
 	var player_A = function () {
-		var _n1 = model.game_state.active_player;
-		if (_n1.$ === 'Player') {
+		var _n3 = model.game_state.active_player;
+		if (_n3.$ === 'Player') {
 			return A2(
 				mdgriffith$elm_ui$Element$row,
 				_List_fromArray(
@@ -11650,9 +12157,9 @@ var author$project$Main$view = function (model) {
 		}
 	}();
 	var opponent_mancala = function () {
-		var _n0 = A2(elm$core$Array$get, 13, model.game_state.board_state);
-		if (_n0.$ === 'Just') {
-			var i = _n0.a;
+		var _n2 = A2(elm$core$Array$get, 13, model.game_state.board_state);
+		if (_n2.$ === 'Just') {
+			var i = _n2.a;
 			return i;
 		} else {
 			return 0;
@@ -11735,6 +12242,44 @@ var author$project$Main$view = function (model) {
 				mdgriffith$elm_ui$Element$text(
 					elm$core$String$fromInt(player_mancala)))
 			]));
+	var askAI_button = function () {
+		var _n0 = model.game_type;
+		if (_n0.$ === 'Player_vs_Player') {
+			return mdgriffith$elm_ui$Element$none;
+		} else {
+			var col = function () {
+				var _n1 = model.game_state.active_player;
+				if (_n1.$ === 'Player') {
+					return author$project$Main$gray;
+				} else {
+					return author$project$Main$green;
+				}
+			}();
+			return A2(
+				mdgriffith$elm_ui$Element$row,
+				_List_fromArray(
+					[
+						mdgriffith$elm_ui$Element$padding(5)
+					]),
+				_List_fromArray(
+					[
+						A2(
+						mdgriffith$elm_ui$Element$Input$button,
+						_List_fromArray(
+							[
+								mdgriffith$elm_ui$Element$Border$width(3),
+								mdgriffith$elm_ui$Element$Border$rounded(10),
+								mdgriffith$elm_ui$Element$padding(8),
+								mdgriffith$elm_ui$Element$Font$size(28),
+								mdgriffith$elm_ui$Element$Background$color(col)
+							]),
+						{
+							label: mdgriffith$elm_ui$Element$text('Ask AI'),
+							onPress: elm$core$Maybe$Just(author$project$Main$AskAI)
+						})
+					]));
+		}
+	}();
 	return A2(
 		mdgriffith$elm_ui$Element$layout,
 		_List_fromArray(
@@ -11757,45 +12302,67 @@ var author$project$Main$view = function (model) {
 					mdgriffith$elm_ui$Element$row,
 					_List_fromArray(
 						[
-							mdgriffith$elm_ui$Element$padding(5)
+							mdgriffith$elm_ui$Element$width(mdgriffith$elm_ui$Element$fill)
 						]),
 					_List_fromArray(
 						[
 							A2(
-							mdgriffith$elm_ui$Element$Input$button,
+							mdgriffith$elm_ui$Element$row,
+							_List_fromArray(
+								[mdgriffith$elm_ui$Element$alignLeft]),
 							_List_fromArray(
 								[
-									mdgriffith$elm_ui$Element$Border$width(3),
-									mdgriffith$elm_ui$Element$Border$rounded(10),
-									mdgriffith$elm_ui$Element$padding(8),
-									mdgriffith$elm_ui$Element$Font$size(28)
-								]),
-							{
-								label: mdgriffith$elm_ui$Element$text('Undo last move'),
-								onPress: elm$core$Maybe$Just(author$project$Main$Revert)
-							})
-						])),
-					A2(
-					mdgriffith$elm_ui$Element$row,
-					_List_fromArray(
-						[
-							mdgriffith$elm_ui$Element$padding(5)
-						]),
-					_List_fromArray(
-						[
+									A2(
+									mdgriffith$elm_ui$Element$row,
+									_List_fromArray(
+										[
+											mdgriffith$elm_ui$Element$padding(5)
+										]),
+									_List_fromArray(
+										[
+											A2(
+											mdgriffith$elm_ui$Element$Input$button,
+											_List_fromArray(
+												[
+													mdgriffith$elm_ui$Element$Border$width(3),
+													mdgriffith$elm_ui$Element$Border$rounded(10),
+													mdgriffith$elm_ui$Element$padding(8),
+													mdgriffith$elm_ui$Element$Font$size(28)
+												]),
+											{
+												label: mdgriffith$elm_ui$Element$text('Undo last move'),
+												onPress: elm$core$Maybe$Just(author$project$Main$Revert)
+											})
+										])),
+									A2(
+									mdgriffith$elm_ui$Element$row,
+									_List_fromArray(
+										[
+											mdgriffith$elm_ui$Element$padding(5)
+										]),
+									_List_fromArray(
+										[
+											A2(
+											mdgriffith$elm_ui$Element$Input$button,
+											_List_fromArray(
+												[
+													mdgriffith$elm_ui$Element$Border$width(3),
+													mdgriffith$elm_ui$Element$Border$rounded(10),
+													mdgriffith$elm_ui$Element$padding(8),
+													mdgriffith$elm_ui$Element$Font$size(28)
+												]),
+											{
+												label: mdgriffith$elm_ui$Element$text('Show Rules'),
+												onPress: elm$core$Maybe$Just(author$project$Main$ChangeRuleVisibility)
+											})
+										]))
+								])),
 							A2(
-							mdgriffith$elm_ui$Element$Input$button,
+							mdgriffith$elm_ui$Element$row,
 							_List_fromArray(
-								[
-									mdgriffith$elm_ui$Element$Border$width(3),
-									mdgriffith$elm_ui$Element$Border$rounded(10),
-									mdgriffith$elm_ui$Element$padding(8),
-									mdgriffith$elm_ui$Element$Font$size(28)
-								]),
-							{
-								label: mdgriffith$elm_ui$Element$text('Show Rules'),
-								onPress: elm$core$Maybe$Just(author$project$Main$ChangeRuleVisibility)
-							})
+								[mdgriffith$elm_ui$Element$alignRight]),
+							_List_fromArray(
+								[askAI_button]))
 						])),
 					show_rules
 				])));

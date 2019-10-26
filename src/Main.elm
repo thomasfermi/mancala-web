@@ -37,7 +37,6 @@ total_num_holes =
 initial_num_marbles_per_hole =
     4
 
-game_type = Player_vs_Player
 
 type GameType
     = Player_vs_Player
@@ -56,15 +55,16 @@ type alias GameState =
 
 
 type alias Model =
-    { game_state : GameState
+    { game_type : GameType
+    , game_state : GameState
     , last_game_state : Maybe GameState
     , rules_visible : Bool
     }
 
 
 
-initialModel : Model
-initialModel =
+init_model : GameType -> Model
+init_model game_type =
     let
         initial_board_state =
             let
@@ -82,7 +82,8 @@ initialModel =
         initial_game_state =
             { board_state = initial_board_state, active_player = Player }
     in
-    { game_state = initial_game_state
+    { game_type = game_type
+    , game_state = initial_game_state
     , last_game_state = Nothing
     , rules_visible = False
     }
@@ -436,6 +437,8 @@ type Msg
     | Revert
     | ChangeRuleVisibility
     | AskAI
+    | NewGamePvP
+    | NewGamePvAI
 
 
 update : Msg -> Model -> Model
@@ -452,21 +455,29 @@ update msg model =
 
         AskAI ->
             ask_ai_to_move model
+        
+        NewGamePvP ->
+            init_model Player_vs_Player
 
+        NewGamePvAI ->
+            init_model Player_vs_AI
 
 
 
 -- VIEW
 
 
+dark_green =
+    rgb 0.0 0.5 0.0
+
 green =
     rgb 0.0 1.0 0.0
-
 
 gray =
     rgb 0.5 0.5 0.5
 
-
+white = 
+    rgb 1.0 1.0 1.0
 
 
 view : Model -> Html.Html Msg
@@ -496,7 +507,7 @@ view model =
                     view_single_hole gray True
 
         view_single_hole_opponent =
-            case game_type of 
+            case model.game_type of 
                 Player_vs_Player ->
                     case model.game_state.active_player of
                         Player ->
@@ -524,12 +535,24 @@ view model =
                     0
 
         player_B =
-            case model.game_state.active_player of
-                Player ->
-                    row [ padding 3, centerX, Font.size 28 ] [ text "← Player B" ]
+            case model.game_type of 
+                Player_vs_Player ->
+                    case model.game_state.active_player of
+                        Player ->
+                            row [ padding 3, centerX, Font.size 28 ] [ text "← Player B" ]
 
-                Opponent ->
-                    row [ padding 3, centerX, Font.size 28, Background.color green ] [ text "← Player B" ]
+                        Opponent ->
+                            row [ padding 3, centerX, Font.size 28, Background.color green ] [ text "← Player B" ]
+                Player_vs_AI -> 
+                    case model.game_state.active_player of
+                        Player ->
+                            row [ padding 6, centerX, Font.size 28 ] [ text "← AI opponent" ]
+
+                        Opponent ->
+                            row [centerX] [ 
+                                Input.button [Border.width 3, Border.rounded 10, padding 3, Font.size 28, Background.color green] 
+                                    { onPress = Just AskAI, label = text "← AI opponent" }
+                             ]
 
         player_A =
             case model.game_state.active_player of
@@ -546,16 +569,34 @@ view model =
             else
                 Element.none
 
-        askAI_button = 
-            case game_type of 
-                Player_vs_Player -> Element.none
-                Player_vs_AI -> let
-                                    col = case model.game_state.active_player of 
-                                                Player -> gray
-                                                Opponent -> green
-                                in 
-                                    row[ padding 5] [ Input.button [ Border.width 3, Border.rounded 10, padding 8, Font.size 28, Background.color col] 
-                                    { onPress = Just AskAI, label = text "Ask AI" } ]
+        show_rules_button =
+            row [ padding 5 ] [ Input.button [ Border.width 3, Border.rounded 10, padding 8, Font.size 28 ] { onPress = Just ChangeRuleVisibility, label = text "Show Rules" } ]
+
+        undo_last_move_button = 
+            row [ padding 5 ] [ Input.button [ Border.width 3, Border.rounded 10, padding 8, Font.size 28 ] { onPress = Just Revert, label = text "Undo last move" } ]
+
+
+        button_pvp = 
+            let 
+                button_pvp_helper col = row [alignLeft] [Input.button [ Font.size 28, Border.width 3, Border.rounded 10, padding 8, Background.color col]   { onPress = Just NewGamePvP, label = text "Player vs. Player game" } ]
+            in
+                case model.game_type of 
+                    Player_vs_Player -> button_pvp_helper gray  
+                    Player_vs_AI -> button_pvp_helper white
+
+        button_pvai = 
+            let 
+                button_pvai_helper col = row [alignRight] [Input.button [ Font.size 28, Border.width 3, Border.rounded 10, padding 8, Background.color col]  { onPress = Just NewGamePvAI, label = text "Player vs. AI game" } ]
+            in
+                case model.game_type of 
+                    Player_vs_Player -> button_pvai_helper white  
+                    Player_vs_AI -> button_pvai_helper gray          
+
+        game_type_selection_bar = 
+            row [padding 2, width fill, Font.size 28, Border.width 3] [
+                  button_pvp
+                , button_pvai
+            ]
 
         board_ui =
             row [ padding 5, Border.width 4, Border.rounded 10, centerY, centerX, spacing 20 ]
@@ -571,7 +612,9 @@ view model =
     in
     layout [ width fill, height fill ] <|
         column [ padding 15 ]
-            [ player_B
+            [ game_type_selection_bar
+            , row [padding 10] [] -- some vertical space
+            , player_B
             , board_ui
             , player_A
             -- TODO: Should the alpha beta value be shown to the user?
@@ -579,15 +622,11 @@ view model =
             --, row [] [ heuristic model.game_state |> String.fromInt |> text]
             --, row [] [ get_score_for_player Player model.game_state |> String.fromInt |> text]
             --, row [] [ get_score_for_player Opponent model.game_state |> String.fromInt |> text]
-            , row[width fill] [
-                  row [alignLeft] [
-                      row [ padding 5 ] [ Input.button [ Border.width 3, Border.rounded 10, padding 8, Font.size 28 ] { onPress = Just Revert, label = text "Undo last move" } ]
-                    , row [ padding 5 ] [ Input.button [ Border.width 3, Border.rounded 10, padding 8, Font.size 28 ] { onPress = Just ChangeRuleVisibility, label = text "Show Rules" } ]
+            , row [padding 10] [] -- some vertical space
+            , row [] [
+                      undo_last_move_button
+                    , show_rules_button
                 ]
-                , row [alignRight] [
-                      askAI_button
-                ]
-            ]
             , show_rules
             ]
 
@@ -595,7 +634,7 @@ view model =
 main : Program () Model Msg
 main =
     Browser.sandbox
-        { init = initialModel
+        { init = init_model Player_vs_AI
         , view = view
         , update = update
         }
