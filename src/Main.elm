@@ -37,6 +37,12 @@ total_num_holes =
 initial_num_marbles_per_hole =
     4
 
+game_type = Player_vs_Player
+
+type GameType
+    = Player_vs_Player
+    | Player_vs_AI
+
 
 type ActivePlayer
     = Player
@@ -367,6 +373,21 @@ alpha_beta game_state depth alpha beta = -- returns value of game_state
                 take_min (get_all_children_and_actions game_state) depth alpha beta 9999
 
 
+move_decision_ai game_state max_depth =
+    let 
+        children_actions = get_all_children_and_actions game_state
+        values_actions = List.map (\(gs,a) -> (alpha_beta gs max_depth -9999 9999, a)) children_actions
+        get_best_move remaining_values_actions best_value_action_so_far =
+            case remaining_values_actions of
+                [] -> Tuple.second best_value_action_so_far
+                (va::vas) -> if Tuple.first va < Tuple.first best_value_action_so_far 
+                            then get_best_move vas va
+                            else get_best_move vas best_value_action_so_far
+    in
+        get_best_move values_actions (9999, -1)
+
+
+-- responses to messages:
 
 perform_legal_user_action model index =
     let
@@ -399,6 +420,13 @@ change_rule_visibility model =
     { model | rules_visible = not model.rules_visible }
 
 
+ask_ai_to_move model =
+    case model.game_state.active_player of 
+        Player -> model 
+        Opponent -> let 
+                        index = move_decision_ai model.game_state 2
+                    in 
+                        perform_legal_user_action model index
 
 -- UPDATE
 
@@ -407,6 +435,7 @@ type Msg
     = Action Int
     | Revert
     | ChangeRuleVisibility
+    | AskAI
 
 
 update : Msg -> Model -> Model
@@ -420,6 +449,10 @@ update msg model =
 
         ChangeRuleVisibility ->
             change_rule_visibility model
+
+        AskAI ->
+            ask_ai_to_move model
+
 
 
 
@@ -440,7 +473,7 @@ view : Model -> Html.Html Msg
 view model =
     let
         -- view functions for buttons
-        view_single_hole col index =
+        view_single_hole col clickable index =
             let
                 num_marbles =
                     case Array.get index model.game_state.board_state of
@@ -449,25 +482,30 @@ view model =
 
                         Nothing ->
                             0
+                on_press_event = if clickable then Just (Action index) else Nothing
             in
             Input.button [ width (px 100), Font.center, padding 30, Border.width 3, Border.rounded 80, Background.color col, Font.size 36 ]
-                { onPress = Just (Action index), label = num_marbles |> String.fromInt |> text }
+                { onPress = on_press_event, label = num_marbles |> String.fromInt |> text }
 
         view_single_hole_player =
             case model.game_state.active_player of
                 Player ->
-                    view_single_hole green
+                    view_single_hole green True
 
                 Opponent ->
-                    view_single_hole gray
+                    view_single_hole gray True
 
         view_single_hole_opponent =
-            case model.game_state.active_player of
-                Player ->
-                    view_single_hole gray
+            case game_type of 
+                Player_vs_Player ->
+                    case model.game_state.active_player of
+                        Player ->
+                            view_single_hole gray True
 
-                Opponent ->
-                    view_single_hole green
+                        Opponent ->
+                            view_single_hole green True
+                Player_vs_AI ->
+                    view_single_hole gray False
 
         player_mancala =
             case Array.get 6 model.game_state.board_state of
@@ -508,6 +546,17 @@ view model =
             else
                 Element.none
 
+        askAI_button = 
+            case game_type of 
+                Player_vs_Player -> Element.none
+                Player_vs_AI -> let
+                                    col = case model.game_state.active_player of 
+                                                Player -> gray
+                                                Opponent -> green
+                                in 
+                                    row[ padding 5] [ Input.button [ Border.width 3, Border.rounded 10, padding 8, Font.size 28, Background.color col] 
+                                    { onPress = Just AskAI, label = text "Ask AI" } ]
+
         board_ui =
             row [ padding 5, Border.width 4, Border.rounded 10, centerY, centerX, spacing 20 ]
                 [ -- This is left-to-right board layout
@@ -530,8 +579,15 @@ view model =
             --, row [] [ heuristic model.game_state |> String.fromInt |> text]
             --, row [] [ get_score_for_player Player model.game_state |> String.fromInt |> text]
             --, row [] [ get_score_for_player Opponent model.game_state |> String.fromInt |> text]
-            , row [ padding 5 ] [ Input.button [ Border.width 3, Border.rounded 10, padding 8, Font.size 28 ] { onPress = Just Revert, label = text "Undo last move" } ]
-            , row [ padding 5 ] [ Input.button [ Border.width 3, Border.rounded 10, padding 8, Font.size 28 ] { onPress = Just ChangeRuleVisibility, label = text "Show Rules" } ]
+            , row[width fill] [
+                  row [alignLeft] [
+                      row [ padding 5 ] [ Input.button [ Border.width 3, Border.rounded 10, padding 8, Font.size 28 ] { onPress = Just Revert, label = text "Undo last move" } ]
+                    , row [ padding 5 ] [ Input.button [ Border.width 3, Border.rounded 10, padding 8, Font.size 28 ] { onPress = Just ChangeRuleVisibility, label = text "Show Rules" } ]
+                ]
+                , row [alignRight] [
+                      askAI_button
+                ]
+            ]
             , show_rules
             ]
 
