@@ -467,14 +467,12 @@ update msg model =
 -- VIEW
 
 
-dark_green =
-    rgb 0.0 0.5 0.0
 
 green =
     rgb 0.0 1.0 0.0
 
 gray =
-    rgb 0.5 0.5 0.5
+    rgb 0.6 0.6 0.6
 
 white = 
     rgb 1.0 1.0 1.0
