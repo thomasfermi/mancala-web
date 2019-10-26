@@ -114,15 +114,15 @@ get_score_for_player player game_state =
             Array.slice 7 14 game_state.board_state |> Array.toList |> List.sum
 
 
-is_game_state_final game_state =
+is_game_state_final game_state = --TODO: refactor needless computations away
     let
         get_num_marbles_in_all_holes_for player =
             case player of
                 Player ->
-                    Array.slice 0 5 game_state.board_state |> Array.toList |> List.sum
+                    Array.slice 0 6 game_state.board_state |> Array.toList |> List.sum
 
                 Opponent ->
-                    Array.slice 7 12 game_state.board_state |> Array.toList |> List.sum
+                    Array.slice 7 13 game_state.board_state |> Array.toList |> List.sum
 
         player_marbles =
             get_num_marbles_in_all_holes_for Player
@@ -130,7 +130,7 @@ is_game_state_final game_state =
         opponent_marbles =
             get_num_marbles_in_all_holes_for Opponent
     in
-    (player_marbles == 0) || (opponent_marbles == 0)
+        if game_state.active_player == Player then player_marbles == 0 else opponent_marbles == 0
 
 
 steal_marbles game_state winning_hole_index losing_hole_index =
@@ -487,7 +487,7 @@ move_decision_ai game_state max_depth =
                     else
                         get_best_move vas best_value_action_so_far
     in
-    get_best_move values_actions ( 9999, -1 )
+        get_best_move values_actions ( 9999, -1 )
 
 
 
@@ -527,18 +527,31 @@ change_rule_visibility model =
 
 
 ask_ai_to_move model =
-    case model.game_state.active_player of
-        Player ->
-            model
+    if is_game_state_final model.game_state then model
+    else
+        case model.game_state.active_player of
+            Player ->
+                model
 
-        Opponent ->
-            let
-                index =
-                    move_decision_ai model.game_state 2
-            in
-            perform_legal_user_action model index
+            Opponent ->
+                let
+                    index =
+                        move_decision_ai model.game_state 2
+                in
+                perform_legal_user_action model index
 
-
+game_over_clean_up model =
+    let 
+        playerA_score = get_score_for_player Player model.game_state
+        playerB_score = get_score_for_player Opponent model.game_state
+        final_board = Array.initialize total_num_holes (always 0)
+                      |> Array.set 6 playerA_score 
+                      |> Array.set 13 playerB_score
+        old_game_state = model.game_state
+        final_game_state = {old_game_state | board_state = final_board}
+    in 
+        {model | game_state = final_game_state}
+    
 
 -- UPDATE
 
@@ -550,6 +563,7 @@ type Msg
     | AskAI
     | NewGamePvP
     | NewGamePvAI
+    | GameOverCleanUp
 
 
 update : Msg -> Model -> Model
@@ -572,6 +586,9 @@ update msg model =
 
         NewGamePvAI ->
             init_model Player_vs_AI
+
+        GameOverCleanUp ->
+            game_over_clean_up model
 
 
 
@@ -719,6 +736,26 @@ view model =
                 Player_vs_AI ->
                     button_pvai_helper gray
 
+        button_game_over =
+            let 
+                marble_sum =  (Array.slice 7 13 model.game_state.board_state |> Array.toList |> List.sum)
+                            + (Array.slice 0 6 model.game_state.board_state |> Array.toList |> List.sum)
+                button_text = 
+                    if marble_sum == 0
+                    then 
+                        case heuristic model.game_state of 
+                            0 -> "It's a draw!"
+                            x -> if x > 0 then "Player A won!"
+                                 else 
+                                    case model.game_type of 
+                                        Player_vs_AI -> "The AI won!"
+                                        Player_vs_Player -> "Player B won!"
+                    else "Game over. Press here to clean up!"
+            in 
+            if is_game_state_final model.game_state 
+            then row [ alignRight ] [ Input.button [ Font.size 28, Border.width 3, Border.rounded 10, padding 8, Background.color green ] { onPress = Just GameOverCleanUp, label = text button_text } ]
+            else Element.none
+
         game_type_selection_bar =
             row [ padding 2, width fill, Font.size 28, Border.width 3 ]
                 [ button_pvp
@@ -745,9 +782,12 @@ view model =
             , board_ui
             , player_A
             , row [ padding 10 ] [] -- some vertical space
-            , row []
-                [ undo_last_move_button
-                , show_rules_button
+            , row[width fill] [
+                  row [alignLeft]
+                    [ undo_last_move_button
+                    , show_rules_button
+                    ]
+                , button_game_over
                 ]
             , show_rules
             ]
