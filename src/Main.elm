@@ -230,7 +230,7 @@ drop_marbles game_state marbles_in_hand current_index =
         drop_marbles inc_game_state (marbles_in_hand - 1) (wrapped_int_increment index)
 
     else
-        check_for_bonus inc_game_state current_index
+        check_for_bonus inc_game_state index
 
 
 make_move game_state index =
