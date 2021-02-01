@@ -536,7 +536,7 @@ ask_ai_to_move model =
             Opponent ->
                 let
                     index =
-                        move_decision_ai model.game_state 2
+                        move_decision_ai model.game_state 3
                 in
                 perform_legal_user_action model index
 
